@@ -1,6 +1,8 @@
 library(tidyverse)
 library(tictoc)
 
+source(here::here("source", "Functions.R"))
+
 B=100
 nt=100
 alpha=0.05
