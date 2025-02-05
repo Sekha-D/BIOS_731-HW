@@ -16,10 +16,10 @@ by the full analysis files)
 ## Running order to reproduce results
 * Open up the HW1.Rproj file. 
 * To generate the results first run the Simulation.R file in Simulation folder. 
-        **This will load all the libraries and functions first. The run the scenarios using parallelization.
+        This will load all the libraries and functions first. Then it will run the scenarios using parallelization.
          It will save .RDA files for each scenario in results folder. After all 18 scenarios are done, 
          a summary table will also be saved summarizing all the results of the 18 scenarios
-* To get the final report, run the rmd file under reports folder
+* To get the final report, run the .rmd file under reports folder
 
 ## Libraries used
 

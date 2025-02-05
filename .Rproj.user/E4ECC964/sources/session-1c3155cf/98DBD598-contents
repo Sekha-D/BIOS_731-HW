@@ -1,0 +1,222 @@
+---
+title: "BIOS761/EPI760 Homework 6"
+author: "Sekha Daluwatumulle"
+output: 
+  pdf_document:
+    extra_dependencies: ["booktabs", "float", "multirow"]
+    keep_tex: false
+    highlight: haddock
+urlcolor: blue    
+---
+
+1. (2 points) Write a function that takes as input numeric values `n` and `beta` and returns a `data.frame` with `n` observations according to the data generating process below.
+
+- There are two covariates $W_1$ and $W_2$
+  - $W_1$ has a Uniform(-1,1) distribution (hint: `runif`)
+  - $W_2$ has a Bernoulli(0.5) distribution (hint: `rbinom`)
+
+- There is a single binary treatment $A$
+  - $P(A = 1 \mid W_1 = w_1, W_2 = w_2) = \mbox{expit}(-1 + w_1 + \beta w_2)$
+  - Here, $\beta$ is the input value to your function `beta`
+
+- There is a binary outcome $Y$
+  - $P(Y(a) = 1 \mid W_1 = w_1, W_2 = w_2) = \mbox{expit}(a / 2 + w_1)$
+  - Suppose consistency holds so that $P(Y(a) = 1 \mid W_1 = w_1, W_2 = w_2) = P(Y = 1 \mid A = a, W_1 = w_1, W_2 = w_2)$
+
+```{r, make_data, eval = TRUE}
+
+make_data <- function(n, beta_w_ps = 0){
+    W1 <- runif(n,min=-1,max=1)
+    W2<- rbinom(n,size=1, p=0.5)
+    
+    ps <- plogis(-1 + W1 + beta_w_ps*W2)
+    A <- rbinom(n, 1, ps)
+
+    or <- plogis(A/2 + W1)
+    Y <- rbinom(n, 1, or)
+
+    out <- list(data=data.frame(W1,W2, A, Y),ps=ps)
+
+    return(out)
+}
+data=make_data(10000,0.25)
+head(data$data)
+```
+2. (1 point) Draw a DAG that includes $W_1, W_2, A,$ and $Y$ and is compatible with the data generating process described above.
+
+
+From your DAG, you may be able to infer that it is possible to satisfy the randomization condition $Y(a) \perp A \mid W$ setting $W = (W_1, W_2)$ __OR__ setting $W = W_1$. In other words, $W_2$ is not a true confounder. The following simulation will have you explore the impact on the various methods of unnecessarily adjusting for $W_2$ vs. only adjusting for the one true confounder $W_1$.
+  
+```{r, dag, eval=TRUE}
+library(dagitty)
+library(ggdag)
+library(ggplot2)
+
+dag <- dagitty("dag{W1 -> A -> Y;W2->A;W1->Y}")
+tidy_dagitty(dag)
+ggdag(dag, layout = "circle")
+```
+3. (2 points) Write a function that numerically approximates the true value of $E[Y(1)]$, $E[Y(0)]$ and the causal risk ratio $E[Y(1)]/E[Y(0)]$ under this data generating process. Run your function to report an estimate of the true value of these causal parameters. Note that the choice of $\beta$ __does not__ impact the true value of these parameters.
+
+```{r, truth, eval=TRUE}
+get_truth <- function(n = 1e6){
+    W1 <- runif(n,min=-1,max=1)
+
+    or_A_equal_0 <- plogis(0/2 + W1)
+    Y0 <- rbinom(n, 1, or_A_equal_0)
+    
+    or_A_equal_1 <- plogis(1/2 + W1)
+    Y1 <- rbinom(n, 1, or_A_equal_1)
+
+    rr <- mean(Y1)/mean(Y0)
+    return(c(mean(Y1),mean(Y0),rr))
+}
+truth=get_truth()
+truth
+```
+4. (3 points) Note that $\beta$ controls the strength of the association of $W_2$ on $A$, with $\mbox{exp}(\beta)$-times higher odds of treatment for individuals with $W_2 = 1$ vs. $W_2 = 0$. Calibrate your data generating process to select values of $\beta$ such that 
+
+(i) About 90\% of the population has propensity score between 0.05 and 0.95
+\[
+  P[ 0.05 < P(A = 1 \mid W) < 0.95 ] \approx 0.9 \ .
+\]
+
+```{r, q4-a, eval=TRUE}
+
+sample1=make_data(n=10000,beta_w_ps = 3.345)
+mean(sample1$ps > 0.05 & sample1$ps < 0.95)
+```
+and 
+
+(ii) About 70\% of the population has propensity score between 0.05 and 0.95
+\[
+  P[ 0.05 < P(A = 1 \mid W) < 0.95 ] \approx 0.7 \ .
+\]
+
+```{r, q4-b, eval=TRUE}
+
+sample1=make_data(n=10000,beta_w_ps = 4.15)
+mean(sample1$ps > 0.05 & sample1$ps < 0.95)
+```
+
+5. (3 points) Write a function that takes as input 
+
+- a data set of the format outputted by your function in question 1
+- a regression formula for the propensity score
+- a regression formula for the outcome regression
+
+Your function should then use the user-inputted formulas to estimate the outcome regression and propensity score using logistic regression. Then use these regression estimates to compute three estimates of the causal risk ratio based on (i) G-computation, (ii) IPTW and (iii) AIPTW. 
+
+```{r, qestimates, eval=TRUE}
+get_estimate<-function(data, or_formula="Y~.",ps_formula="A~W1+W2"){
+    or_fit <- glm(or_formula, data = data, family = binomial())
+
+    data1 <- data
+    data1$A <- 1
+    gcomp_pred1 <- predict(or_fit, newdata = data1, type = "response")
+    
+    data0 <- data
+    data0$A <- 0
+    gcomp_pred0 <- predict(or_fit, newdata = data0, type = "response")
+
+    ate_gcomp <- mean(gcomp_pred1)/mean(gcomp_pred0)
+    
+    
+    ps_fit <- glm(ps_formula, data = data, family = binomial)
+    ps1 <- ps_fit$fitted.values
+    ps0 <- 1 - ps1
+    
+    
+    iptw_pred1=mean((data$A == 1) / ps1 * data$Y)
+    iptw_pred0=mean((data$A == 0) / ps0 * data$Y)
+    ate_iptw <-iptw_pred1/iptw_pred0
+    
+    
+    aiptw_pred1<-iptw_pred1+mean((1-(data$A==1)/ps1)*gcomp_pred1)
+    aiptw_pred0<-iptw_pred0+mean((1-(data$A==0)/ps0)*gcomp_pred0)
+    ate_aiptw<-aiptw_pred1/aiptw_pred0
+    
+    return(c(ate_gcomp,ate_iptw,ate_aiptw))
+}
+
+get_estimate(data$data)
+```
+6. (2 points) Write a function that takes as input a sample size and a value of $\beta$. The function should first generate a data set of the user-specified sample size and user-specified value of $\beta$. Next, the function should call your function from question 5 two times: the first call should fit main terms models that adjust for both $W_1$ and $W_2$; the second call should fit main terms models that adjust for __only__ $W_1$. Finally, the function should return your six estimates.
+
+
+```{r, q6estimates, eval=TRUE}
+do_one_sim <- function(n, beta_w_ps){
+  
+    data_out <- make_data(n, beta_w_ps)
+    data <- data_out$data
+
+    estimates1 <- get_estimate(data, or_formula="Y~.",ps_formula="A~W1+W2")
+    estimates2 <- get_estimate(data, or_formula="Y~A+W1",ps_formula="A~W1")
+    
+    out <- c(estimates1[1], estimates1[2],estimates1[3],estimates2[1],estimates2[2],estimates2[3])
+    names(out) <- c('gcomp1', 'iptw1','aiptw1','gcomp2', 'iptw2','aiptw2')
+
+    return(out)
+}
+
+do_one_sim(n=100,beta=0.25)
+```
+7. (4 points) For sample sizes of $n = 200, 400, 800$ and for the two choices of $\beta$ identified in question 4, 
+run your function from question 6 1000 times (thus, your function from 6 should be run $3 \times 2 \times 1000$ times). Summarize the bias and standard deviation of each of the six estimates in each setting using either a tables or figures.
+
+```{r, summary, eval=TRUE}
+parameter_grid <- expand.grid( samples=1:1000,n = c(200, 400, 800),beta_w_ps = c(3.345,4.15))
+results <- matrix(NA, nrow=nrow(parameter_grid),ncol=6)
+
+for(i in 1:nrow(parameter_grid)){
+    estimates <- do_one_sim(
+        n = parameter_grid$n[i],
+        beta_w_ps = parameter_grid$beta_w_ps[i]
+    )
+    results[i,1] <- estimates['gcomp1']
+    results[i,2] <- estimates['iptw1']
+    results[i,3] <- estimates['aiptw1']
+    results[i,4] <- estimates['gcomp2']
+    results[i,5] <- estimates['iptw2']
+    results[i,6] <- estimates['aiptw2']
+    
+}
+head(results)
+final_results <- data.frame(
+    parameter_grid,
+    results = results
+)
+colnames(final_results)<- c(names(final_results)[1:3],'gcomp1', 'iptw1','aiptw1','gcomp2', 'iptw2','aiptw2')
+
+```
+
+\begin{table}[H]
+\centering
+\begin{tabular}{ccc|cccccc}
+\toprule
+&&& $G\,comp$ & & $IPTW$ && $AIPTW$&\\ 
+&&& $Bias$ & $SD$ &$Bias$ & $SD$& $Bias$ & $SD$ \\
+\midrule
+$W1\,W2$ & $\beta=3.345$ &$n=200$ &  `r round(colMeans(subset(final_results, n==200 & beta_w_ps ==3.345)[4])-truth[3],4)` & `r round(sapply(subset(final_results, n==200 & beta_w_ps ==3.345)[4], sd),4)`&  `r round(colMeans(subset(final_results, n==200 & beta_w_ps ==3.345)[5])-truth[3],4)`&  `r round(sapply(subset(final_results, n==200 & beta_w_ps ==3.345)[5], sd),4)`  &  `r round(colMeans(subset(final_results, n==200 & beta_w_ps ==3.345)[6])-truth[3],4)` & `r round(sapply(subset(final_results, n==200 & beta_w_ps ==3.345)[6], sd),4)`\\
+&& $n=400$ &`r round(colMeans(subset(final_results, n==400 & beta_w_ps ==3.345)[4])-truth[3],4)` & `r round(sapply(subset(final_results, n==400 & beta_w_ps ==3.345)[4], sd),4)`&  `r round(colMeans(subset(final_results, n==400 & beta_w_ps ==3.345)[5])-truth[3],4)`&  `r round(sapply(subset(final_results, n==400 & beta_w_ps ==3.345)[5], sd),4)`  &  `r round(colMeans(subset(final_results, n==400 & beta_w_ps ==3.345)[6])-truth[3],4)` & `r round(sapply(subset(final_results, n==400 & beta_w_ps ==3.345)[6], sd),4)`\\
+&&$n=800$&`r round(colMeans(subset(final_results, n==800 & beta_w_ps ==3.345)[4])-truth[3],4)` & `r round(sapply(subset(final_results, n==800 & beta_w_ps ==3.345)[4], sd),4)`&  `r round(colMeans(subset(final_results, n==800 & beta_w_ps ==3.345)[5])-truth[3],4)`&  `r round(sapply(subset(final_results, n==800 & beta_w_ps ==3.345)[5], sd),4)`  &  `r round(colMeans(subset(final_results, n==800 & beta_w_ps ==3.345)[6])-truth[3],4)` & `r round(sapply(subset(final_results, n==800 & beta_w_ps ==3.345)[6], sd),4)`\\
+&$\beta=4.15$&$n=200$&`r round(colMeans(subset(final_results, n==200 & beta_w_ps ==4.15)[4])-truth[3],4)` & `r round(sapply(subset(final_results, n==200 & beta_w_ps ==4.15)[4], sd),4)`&  `r round(colMeans(subset(final_results, n==200 & beta_w_ps ==4.15)[5])-truth[3],4)`&  `r round(sapply(subset(final_results, n==200 & beta_w_ps ==4.15)[5], sd),4)`  &  `r round(colMeans(subset(final_results, n==200 & beta_w_ps ==4.15)[6])-truth[3],4)` & `r round(sapply(subset(final_results, n==200 & beta_w_ps ==4.15)[6], sd),4)`\\
+&&$n=400$&`r round(colMeans(subset(final_results, n==400 & beta_w_ps ==4.15)[4])-truth[3],4)` & `r round(sapply(subset(final_results, n==400 & beta_w_ps ==4.15)[4], sd),4)`&  `r round(colMeans(subset(final_results, n==400 & beta_w_ps ==4.15)[5])-truth[3],4)`&  `r round(sapply(subset(final_results, n==400 & beta_w_ps ==4.15)[5], sd),4)`  &  `r round(colMeans(subset(final_results, n==400 & beta_w_ps ==4.15)[6])-truth[3],4)` & `r round(sapply(subset(final_results, n==400 & beta_w_ps ==4.15)[6], sd),4)`\\
+&&$n=800$&`r round(colMeans(subset(final_results, n==800 & beta_w_ps ==4.15)[4])-truth[3],4)` & `r round(sapply(subset(final_results, n==800 & beta_w_ps ==4.15)[4], sd),4)`&  `r round(colMeans(subset(final_results, n==800 & beta_w_ps ==4.15)[5])-truth[3],4)`&  `r round(sapply(subset(final_results, n==800 & beta_w_ps ==4.15)[5], sd),4)`  &  `r round(colMeans(subset(final_results, n==800 & beta_w_ps ==4.15)[6])-truth[3],4)` & `r round(sapply(subset(final_results, n==800 & beta_w_ps ==4.15)[6], sd),4)`\\
+$W1\,only$ & $\beta=3.345$ &$n=200$&  `r round(colMeans(subset(final_results, n==200 & beta_w_ps ==3.345)[7])-truth[3],4)` & `r round(sapply(subset(final_results, n==200 & beta_w_ps ==3.345)[7], sd),4)`&  `r round(colMeans(subset(final_results, n==200 & beta_w_ps ==3.345)[8])-truth[3],4)`&  `r round(sapply(subset(final_results, n==200 & beta_w_ps ==3.345)[8], sd),4)`  &  `r round(colMeans(subset(final_results, n==200 & beta_w_ps ==3.345)[9])-truth[3],4)` & `r round(sapply(subset(final_results, n==200 & beta_w_ps ==3.345)[9], sd),4)`\\
+&&$n=400$&`r round(colMeans(subset(final_results, n==400 & beta_w_ps ==3.345)[7])-truth[3],4)` & `r round(sapply(subset(final_results, n==400 & beta_w_ps ==3.345)[7], sd),4)`&  `r round(colMeans(subset(final_results, n==400 & beta_w_ps ==3.345)[8])-truth[3],4)`&  `r round(sapply(subset(final_results, n==400 & beta_w_ps ==3.345)[8], sd),4)`  &  `r round(colMeans(subset(final_results, n==400 & beta_w_ps ==3.345)[9])-truth[3],4)` & `r round(sapply(subset(final_results, n==400 & beta_w_ps ==3.345)[9], sd),4)`\\
+&&$n=800$&`r round(colMeans(subset(final_results, n==800 & beta_w_ps ==3.345)[7])-truth[3],4)` & `r round(sapply(subset(final_results, n==800 & beta_w_ps ==3.345)[7], sd),4)`&  `r round(colMeans(subset(final_results, n==800 & beta_w_ps ==3.345)[8])-truth[3],4)`&  `r round(sapply(subset(final_results, n==800 & beta_w_ps ==3.345)[8], sd),4)`  &  `r round(colMeans(subset(final_results, n==800 & beta_w_ps ==3.345)[9])-truth[3],4)` & `r round(sapply(subset(final_results, n==800 & beta_w_ps ==3.345)[9], sd),4)`\\
+&$\beta=4.15$&$n=200$&`r round(colMeans(subset(final_results, n==200 & beta_w_ps ==4.15)[7])-truth[3],4)` & `r round(sapply(subset(final_results, n==200 & beta_w_ps ==4.15)[7], sd),4)`&  `r round(colMeans(subset(final_results, n==200 & beta_w_ps ==4.15)[8])-truth[3],4)`&  `r round(sapply(subset(final_results, n==200 & beta_w_ps ==4.15)[8], sd),4)`  &  `r round(colMeans(subset(final_results, n==200 & beta_w_ps ==4.15)[9])-truth[3],4)` & `r round(sapply(subset(final_results, n==200 & beta_w_ps ==4.15)[9], sd),4)`\\
+&&$n=400$&`r round(colMeans(subset(final_results, n==400 & beta_w_ps ==4.15)[7])-truth[3],4)` & `r round(sapply(subset(final_results, n==400 & beta_w_ps ==4.15)[7], sd),4)`&  `r round(colMeans(subset(final_results, n==400 & beta_w_ps ==4.15)[8])-truth[3],4)`&  `r round(sapply(subset(final_results, n==400 & beta_w_ps ==4.15)[8], sd),4)`  &  `r round(colMeans(subset(final_results, n==400 & beta_w_ps ==4.15)[9])-truth[3],4)` & `r round(sapply(subset(final_results, n==400 & beta_w_ps ==4.15)[9], sd),4)`\\
+&&$n=800$ &`r round(colMeans(subset(final_results, n==800 & beta_w_ps ==4.15)[7])-truth[3],4)` & `r round(sapply(subset(final_results, n==800 & beta_w_ps ==4.15)[7], sd),4)`&  `r round(colMeans(subset(final_results, n==800 & beta_w_ps ==4.15)[8])-truth[3],4)`&  `r round(sapply(subset(final_results, n==800 & beta_w_ps ==4.15)[8], sd),4)`  &  `r round(colMeans(subset(final_results, n==800 & beta_w_ps ==4.15)[9])-truth[3],4)` & `r round(sapply(subset(final_results, n==800 & beta_w_ps ==4.15)[9], sd),4)`\\
+
+\bottomrule
+\end{tabular}
+\end{table}
+
+8. (3 points) Summarize your results in language appropriate for a statistical/epidemiological journal. How does the performance of the three estimators compare to eachother in each setting? For a given method what, if any, is the impact of unnecessarily adjusting for $W_2$? How/do results change with sample size?
+
+From the above table it can be seen that G-comp estimator is performing better than IPTW and AIPTW (lower bias and standard deviation) when both $W1$ and $W2$ are adjusted for in the regression models. Since $\beta$ values in the simulation are large there is some probability that the positivity assumption is violated. This affects the propensity score estimates used in IPTW and AIPTW equations. Therefore, this leads to a higher bias and standard deviation in these two estimates compared to G-comp. When comparing IPTW and AIPTW, it can be observed that AIPTW is performing better. The reason for this is the doubly robust nature of AIPTW. 
+
+Another interesting observation from the above table is that G-comp, IPTW and AIPTW bias estimates are larger when both $W1$ and $W2$ are adjusted for compared to when only $W1$ is adjusted for. IPTW and AIPTW bias estimates decrease considerably when only $W1$ is adjusted for in the regression models. 
+As sample size increase, the bias and standard deviation estimates both become smaller in value for all the scenarios. 
