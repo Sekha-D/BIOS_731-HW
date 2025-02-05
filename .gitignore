@@ -3,3 +3,4 @@
 *.Rdata 
 *.png
 *.Rproj
+.Rproj.user

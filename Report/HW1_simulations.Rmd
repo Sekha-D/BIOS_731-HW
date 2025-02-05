@@ -49,8 +49,9 @@ To that end:
 * Submit your whole project folder to GitHub 
 * Submit a PDF knitted from Rmd to Canvas. Your solutions to the problem here should be implemented in your .Rmd file, and your git commit history should reflect the process you used to solve these Problems.
 
-\textcolor{blue} {The link to my repository: https://github.com/Sekha-D/BIOS_731-HW.git  }
+\textcolor{blue} {The link to my repository:}
 
+https://github.com/Sekha-D/BIOS_731-HW.git
 
 ## Problem 1
 
@@ -109,17 +110,17 @@ Answer the following questions:
 
 * What method(s) are being evaluated/compared?
 
-\textcolor{blue} {Estimation using the standard regression calculations, also known as the wald method}
+\textcolor{blue} {Estimation using the standard regression calculations, also known as the wald method (denoted as Walds throughout this report).}
 
-\textcolor{blue} {Estimation using the bootstrap percentile interval method}
+\textcolor{blue} {Estimation using the bootstrap percentile interval method (denoted as Boot P throughout this report).}
 
-\textcolor{blue} {Estimation using the bootstrap t interval method}
+\textcolor{blue} {Estimation using the bootstrap t interval method (denoted as Boot t throughout this report).}
 
 \textcolor{blue} {Note: For both bootstrap method s,  I used the residual method}
 
 * What are the performance measure(s)?
 
-\textcolor{blue} {bias, coverage probabilities for the three methods, and also the computational times for the three methods}
+\textcolor{blue} {Bias, coverage probabilities for the three methods, and also the computational times for the three methods.}
 
 \textcolor{blue} {Note: Bias was only calculated using Wald's method. Only $se(\hat{\beta}_{treatment})$ and coverage were calculated using the three methods according according to problem 1. Not sure if we also need to calculate bias according to three methods.} 
 
@@ -182,7 +183,7 @@ load(file = here::here("results", "summary_table.RDA"))
 
 \begin{table}[H]
 \centering
-\caption {A summary of the obtained results. Bias is calculated under the Wald's method. Coverage probabilities were calculated under the three methods given in problem 1.1. Time column indicates the elapsed time in seconds to conduct all the 475 simulations. Results are organised according to the different data generation procedures. Here we generated data from two distributions N(0,2) and lognormal (0,log(2)), with $\beta_{treatment}$=\{0,05, 2\}, and n=\{10,50, 500\}
+\caption {A summary of the obtained results. Bias is calculated under the Wald's method. Coverage probabilities were calculated under the three methods given in problem 1.1. Time column indicates the elapsed time in seconds to conduct all the 475 simulations. Results are organised according to the different data generation procedures. Here we generated data from two distributions N(0,2) and lognormal (0,log(2)), with $\beta_{treatment}$=\{0,0.5, 2\}, and n=\{10,50, 500\}
 \label{table1}} 
 \begin{tabular}{ccc|ccccccc}
 \toprule
@@ -279,14 +280,14 @@ ggplot(df_long2, aes(x = Value)) +
 
 Interpret the results summarized in Problem 1.4. First, write a **paragraph** summarizing the main findings of your simulation study. Then, answer the specific questions below.
 
-\textcolor{blue} {The bias using the standard regression approach (Walds) decrease as sample size increase. The bias values do not seem to change across $\beta_{treatment}$. Coverage probabilities for Walds method are all closer to 95\%. However, it is slightly different (around 96\%) under the lognormal distribution. Contrary to the belief that when n is coverage probabilities are high coverage, we can see that coverage for Wald's when n=500 is around 93\%. The coverage of both the bootstrap methods is low when n is small (n=10). It is around 85\% and 90\% under the normal and lognormal assumptions respectively. As sample size increase, both the boostrap methods perform well, with coverage probabilities close to 95\%.   Under the skewed data and When n=500, bootstrap percentile interval's coverage probability is the closest to 95\%. This indicates that bootstrap method works better when data are skewed (data generated from lognormal) The coverage probabilities don't seem to change across $\beta_{treatment}$ values either.}
+\textcolor{blue} {The bias using the standard regression approach (Walds) decrease as sample size increase. The bias values do not seem to change across $\beta_{treatment}$. Coverage probabilities for Walds method are all closer to 95\%. However, it is slightly different (around 96\%) under the lognormal distribution. Contrary to the belief that when n is large coverage probabilities are high, we can see that coverage for Wald's when n=500 is around 93\%. The coverage of both the bootstrap methods is low when n is small (n=10). It is around 85\% and 90\% under the normal and lognormal assumptions respectively. As sample size increase, both the boostrap methods perform well, with coverage probabilities close to 95\%.   Under the skewed data and when n=500, bootstrap percentile interval's coverage probability is the closest to 95\%. This indicates that bootstrap method works better when data are skewed (data generated from lognormal) The coverage probabilities don't seem to change across $\beta_{treatment}$ values either.}
 
 
 \textcolor{blue} {By comparing Figure 1 and 2, we can see that the distributions of standard deviation of $\hat\beta_{treatment}$ for the two methods (Wald and bootstrap) are quite similar with slight changes. Under the lognormal data assumption, the range of $se(\hat\beta_{treatment})$ is slightly larger in Wald's method compared to bootstrap methods. When the data are generated using a normal distribution, the distribution of $se(\hat\beta_{treatment})$s also look like a normal distribution visually, and when the data are generated using the lognormal distribution, the distribution of $se(\hat\beta_{treatment})$ seems to be skewed as well. When the sample size increase, the range of $se(\hat\beta_{treatment})$ decrease quite considerably, indicating that when n is high there is low variance in the estimates. The distribution of $se(\hat\beta_{treatment})$ do not seem to vary across different $\beta_{treatment}$ }
 
 - How do the different methods for constructing confidence intervals compare in terms of computation time?
 
-\textcolor{blue} {The computaional times calculated in Table 2 is the total elapsed time in seconds took to complete all the `r nsim` simulations. We can see that Wald's method took the least number of seconds. Therefore, Wald's method is the fasted, next bootstrap percentile and the slowest is the boostrap t interval method.  }
+\textcolor{blue} {The computaional times calculated in Table 2 is the total elapsed time in seconds took to complete all the `r nsim` simulations. We can see that Wald's method took the least number of seconds. Therefore, Wald's method is the fastest, next bootstrap percentile and the slowest is the boostrap t interval method.  }
 
 - Which method(s) for constructing confidence intervals provide the best coverage when $\epsilon_i \sim N(0, 2)$?
 
