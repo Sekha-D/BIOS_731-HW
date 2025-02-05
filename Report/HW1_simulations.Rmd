@@ -116,7 +116,7 @@ Answer the following questions:
 
 \textcolor{blue} {Estimation using the bootstrap t interval method (denoted as Boot t throughout this report).}
 
-\textcolor{blue} {Note: For both bootstrap method s,  I used the residual method}
+\textcolor{blue} {Note: For both bootstrap method s,  I used the residual method. For bootstrap percentile method I generated 500 samples. For boostrap t method I generated 500 samples for the first loop, and another 500 samples for the inner loop}
 
 * What are the performance measure(s)?
 
