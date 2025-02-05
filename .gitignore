@@ -2,3 +2,4 @@
 *.html 
 *.Rdata 
 *.png
+.Rproj.user
